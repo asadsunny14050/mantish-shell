@@ -1,0 +1,10 @@
+.clang-format
+build_config.lua
+playground
+playground.c
+a.out
+obj
+*.o
+*.a
+mantish
+
