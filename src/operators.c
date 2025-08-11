@@ -29,7 +29,7 @@ void read_from_file(char *file_name) {
   int fd = open(file_name, O_RDONLY);
   if (fd == -1) {
 
-    fprintf(stderr, "mantish: the file you're program trying to read from \"%s\" \n", file_name);
+    fprintf(stderr, "mantish: the file you're program trying to read from \"%s\" doesn't exist\n", file_name);
     exit(EXIT_FAILURE);
   }
 

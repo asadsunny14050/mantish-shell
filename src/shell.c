@@ -67,7 +67,7 @@ char **parse_command(char *line, command_t *command) {
     handle_quotes(&rest, args, &position);
   }
 
-  // print_string_array(args, 10);
+  print_string_array(args, 10);
 
   return args;
 }
@@ -113,6 +113,7 @@ bool execute_command(command_t *command) {
 
     child_pid = fork();
     if (child_pid == 0) {
+      printf("i'm the child\n");
 
       if (redirection) {
         printf("let's redirect stdout of %s\n", current_cmd->args[0]);
@@ -128,7 +129,7 @@ bool execute_command(command_t *command) {
         printf("%s has to read from a pipe\n", current_cmd->args[0]);
         dup2(prev_pipe_read_end, STDIN_FILENO);
         close(prev_pipe_read_end);
-      } else if (strcmp(current_cmd->operater, operaters[READ]) == 0) {
+      } else if (current_cmd->operater && strcmp(current_cmd->operater, operaters[READ]) == 0) {
         printf("%s has to read from a file\n", current_cmd->args[0]);
         read_from_file(*current_cmd->operand);
       }
