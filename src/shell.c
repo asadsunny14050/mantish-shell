@@ -1,24 +1,16 @@
 #include "../include/shell.h"
+#include "../include/common.h"
 #include "../include/debug_functions.h"
+#include "../include/operators.h"
 #include "../include/parse.h"
+#include "../include/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-enum operator_type {
-  PIPE,
-  APPEND,
-  WRITE
-};
-
-enum pipe_channels {
-  READ_END,
-  WRITE_END,
-};
-
-char *operaters[] = {"|", "<<", "<"};
+char *operaters[] = {"|", ">>", ">", "2>", "<", "&&", "||"};
 
 char *read_command() {
   char *line;
@@ -63,20 +55,11 @@ char **parse_command(char *line, command_t *command) {
         exit(EXIT_FAILURE);
       }
     }
-    printf("token: %s\n", token);
+    printf("token: %p, %s\n", &token, token);
     printf("rest: %s\n", rest);
 
-    if (strcmp(token, operaters[PIPE]) == 0) {
-
-      printf("pipe token found: %s\n", token);
-      command->operater = operaters[PIPE];
-      command->next_command = malloc(sizeof(command_t));
-      command->next_command->args = &args[position + 1];
-      position++;
-      // args[position] = operaters[PIPE];
-      // position++;
+    if (check_operators(token, command, args, &position))
       continue;
-    }
 
     args[position] = token;
     position++;
@@ -84,37 +67,45 @@ char **parse_command(char *line, command_t *command) {
     handle_quotes(&rest, args, &position);
   }
 
-  print_string_array(args, 10);
+  // print_string_array(args, 10);
 
   return args;
 }
 
-bool execute_command(char **args, command_t *command) {
-
-  int process_status;
+bool execute_command(command_t *command) {
 
   int prev_pipe_read_end = STDIN_FILENO;
   pid_t child_pid;
   pid_t child_list[1024];
   pid_t num_of_child = 0;
   enum pipe_channels current_pipe_fds[2] = {-1, -1}; // Stores the new pipe created for current_cmd -> next_command
-  bool redirection = false;
+
+  bool redirection;
 
   command_t *current_cmd = command;
   while (current_cmd) {
     printf("current_cmd: %s\n", current_cmd->args[0]);
     redirection = false;
 
-    if (current_cmd->operater && (strcmp(current_cmd->operater, operaters[PIPE]) == 0)) {
-      if (!current_cmd->next_command) {
-        fprintf(stderr, "incorrect syntax: didn't input program name after the | operator");
+    if (current_cmd->operater) {
+      if ((strcmp(current_cmd->operater, operaters[PIPE]) == 0)) {
+        if (!current_cmd->next_command || !current_cmd->next_command->args[0]) {
+          fprintf(stderr, "incorrect syntax: didn't input program after the %s operator\n", current_cmd->operater);
+          clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+          break;
+        }
+
+        if (pipe((int *)current_pipe_fds) == -1) {
+          perror("mantish: pipe creation failed\n");
+          clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+          break;
+        }
+      } else if (!*current_cmd->operand) {
+        fprintf(stderr, "incorrect syntax: didn't input file after the %s operator\n", current_cmd->operater);
+        clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
         break;
       }
 
-      if (pipe((int *)current_pipe_fds) == -1) {
-        perror("mantish: pipe creation failed");
-        break;
-      }
       redirection = true;
       printf("redirection: %d\n", redirection);
       printf("operator: %s\n", current_cmd->operater);
@@ -122,23 +113,34 @@ bool execute_command(char **args, command_t *command) {
 
     child_pid = fork();
     if (child_pid == 0) {
+
       if (redirection) {
         printf("let's redirect stdout of %s\n", current_cmd->args[0]);
-        dup2(current_pipe_fds[WRITE_END], STDOUT_FILENO); // Redirect stdout to pipe's write end
-        close(current_pipe_fds[WRITE_END]);               // Close unused read end
-        close(current_pipe_fds[READ_END]);                // no need for original read end
+        if (strcmp(current_cmd->operater, operaters[WRITE]) == 0 || strcmp(current_cmd->operater, operaters[APPEND]) == 0 || strcmp(current_cmd->operater, operaters[WRITE_ERR]) == 0) {
+          printf("writing to file\n");
+          write_to_file(*current_cmd->operand, current_cmd->operater);
+        } else if (strcmp(current_cmd->operater, operaters[PIPE]) == 0) {
+          write_to_pipe(current_pipe_fds);
+        }
       }
+
       if (prev_pipe_read_end != STDIN_FILENO) {
         printf("%s has to read from a pipe\n", current_cmd->args[0]);
         dup2(prev_pipe_read_end, STDIN_FILENO);
         close(prev_pipe_read_end);
+      } else if (strcmp(current_cmd->operater, operaters[READ]) == 0) {
+        printf("%s has to read from a file\n", current_cmd->args[0]);
+        read_from_file(*current_cmd->operand);
       }
+
       if (execvp(current_cmd->args[0], current_cmd->args) == -1) {
-        fprintf(stderr, "mantish: either the program \"%s\" doesn't exist or an internal error occured\n", args[0]);
-        break;
+        fprintf(stderr, "mantish: either the program \"%s\" doesn't exist or an internal error occured\n", current_cmd->args[0]);
+        clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+        exit(EXIT_FAILURE);
       }
     } else if (child_pid == -1) {
       fprintf(stderr, "mantish: forking failed\n");
+      clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
       break;
 
     } else {
@@ -151,18 +153,15 @@ bool execute_command(char **args, command_t *command) {
       }
     }
 
+    command_t *previous_cmd = current_cmd;
     current_cmd = current_cmd->next_command;
+    memset(previous_cmd, 0, sizeof(command_t));
+    // free(previous_cmd);
   }
 
-  // do {
-  //   wpid = waitpid(pid, &process_status, WUNTRACED);
-  // } while (!WIFEXITED(process_status) && !WIFSIGNALED(process_status));
   for (int i = 0; i < num_of_child; i++) {
-    int status;
-    // Use WNOHANG if cleanup is on error and you don't want to block forever
-    // if a child is misbehaving. For normal pipeline completion, blocking is fine.
-    waitpid(child_list[i], &status, 0); // Blocking wait for each child
-    // You could log status here if needed
+    int process_status;
+    waitpid(child_list[i], &process_status, 0); // Blocking wait for each child
   }
 
   return true;

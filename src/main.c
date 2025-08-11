@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 void start_shell() {
@@ -26,7 +25,14 @@ void start_shell() {
     args = parse_command(line, &command);
     print_linked_list(&command);
 
-    keep_alive = execute_command(args, &command);
+    keep_alive = execute_command(&command);
+
+    command_t *curr_cmd = command.next_command;
+    while (curr_cmd) {
+      command_t *prev_cmd = curr_cmd;
+      curr_cmd = curr_cmd->next_command;
+      free(prev_cmd);
+    }
 
     free(line);
     free(args);
