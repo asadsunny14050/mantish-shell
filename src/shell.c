@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 char *operaters[] = {"|", ">>", ">", "2>", "<", "&&", "||"};
@@ -82,20 +83,27 @@ bool execute_command(command_t *command) {
 
   bool redirection;
 
+  bool run_permit = true; // means depends on the exectution result of the previous command if any
   command_t *current_cmd = command;
   while (current_cmd) {
     printf("current_cmd: %s\n", current_cmd->args[0]);
     redirection = false;
 
+    if (!run_permit) {
+      printf("hold on buddy, you can't run\n");
+      clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+      break;
+    }
+
     if (current_cmd->operater) {
-      if ((strcmp(current_cmd->operater, operaters[PIPE]) == 0)) {
+      if ((strcmp(command->operater, operaters[PIPE]) == 0 || strcmp(command->operater, operaters[AND]) == 0 || strcmp(command->operater, operaters[OR]) == 0)) {
         if (!current_cmd->next_command || !current_cmd->next_command->args[0]) {
           fprintf(stderr, "incorrect syntax: didn't input program after the %s operator\n", current_cmd->operater);
           clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
           break;
         }
 
-        if (pipe((int *)current_pipe_fds) == -1) {
+        if (strcmp(current_cmd->operater, operaters[PIPE]) == 0 && pipe((int *)current_pipe_fds) == -1) {
           perror("mantish: pipe creation failed\n");
           clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
           break;
@@ -152,12 +160,23 @@ bool execute_command(command_t *command) {
       } else {
         prev_pipe_read_end = STDIN_FILENO;
       }
+
+      if (current_cmd->operater && ((strcmp(current_cmd->operater, operaters[AND]) || strcmp(current_cmd->operater, operaters[OR])))) {
+        int status;
+        waitpid(child_pid, &status, 0);
+        int exit_code;
+        if (WIFEXITED(status)) {
+          exit_code = WEXITSTATUS(status); // Get actual exit code
+
+          run_permit = strcmp(current_cmd->operater, operaters[AND]) ? exit_code != 0 : exit_code == 0;
+          num_of_child--;
+        }
+      }
     }
 
     command_t *previous_cmd = current_cmd;
     current_cmd = current_cmd->next_command;
     memset(previous_cmd, 0, sizeof(command_t));
-    // free(previous_cmd);
   }
 
   for (int i = 0; i < num_of_child; i++) {

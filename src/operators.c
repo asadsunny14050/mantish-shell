@@ -6,14 +6,15 @@ bool check_operators(const char *token, command_t *command, char **tokens, int *
   int ind = 0;
   while (operaters[ind]) {
     if (strcmp(token, operaters[ind]) == 0) {
+
       printf("operator token found: %s\n", token);
       command->operater = operaters[ind];
-      if (strcmp(command->operater, operaters[PIPE]) == 0) {
+      if (strcmp(command->operater, operaters[PIPE]) == 0 || strcmp(command->operater, operaters[AND]) == 0 || strcmp(command->operater, operaters[OR]) == 0) {
+
         command->next_command = malloc(sizeof(command_t));
         command->next_command->args = &tokens[*token_position + 1];
+
       } else {
-        printf("i'm running\n");
-        // printf("print this: %s\n", &tokens[*token_position + 1]);
         command->operand = &tokens[*token_position + 1];
       }
 
