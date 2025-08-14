@@ -1,4 +1,4 @@
-#include "../include/debug_functions.h"
+#include "../include/debug.h"
 
 void print_string_array(char **array_in_question, size_t size) {
   for (size_t i = 0; i < size; i++) {

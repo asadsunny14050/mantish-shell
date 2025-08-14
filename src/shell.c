@@ -1,6 +1,7 @@
 #include "../include/shell.h"
+#include "../include/built_in.h"
 #include "../include/common.h"
-#include "../include/debug_functions.h"
+#include "../include/debug.h"
 #include "../include/operators.h"
 #include "../include/parse.h"
 #include "../include/utils.h"
@@ -119,14 +120,25 @@ bool execute_command(command_t *command) {
       printf("operator: %s\n", current_cmd->operater);
     }
 
-    child_pid = fork();
+    child_pid = -1;
+    int built_in_result = execute_built_ins(current_cmd, &prev_pipe_read_end, current_pipe_fds);
+    // 0 means no build_in to execute fork a child
+    // 1 means a built_in command was executed no need to fork a child process, move on the the next command
+    // -1 means build_in command was found but returned an error thus canceling the command chain loop and signaling for repromt
+    if (built_in_result == 0) {
+      child_pid = fork();
+    } else if (built_in_result == -1) {
+      clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+      break;
+    }
+
     if (child_pid == 0) {
       printf("i'm the child\n");
 
       if (redirection) {
         printf("let's redirect stdout of %s\n", current_cmd->args[0]);
         if (strcmp(current_cmd->operater, operaters[WRITE]) == 0 || strcmp(current_cmd->operater, operaters[APPEND]) == 0 || strcmp(current_cmd->operater, operaters[WRITE_ERR]) == 0) {
-          printf("writing to file\n");
+          printf("will write to file\n");
           write_to_file(*current_cmd->operand, current_cmd->operater);
         } else if (strcmp(current_cmd->operater, operaters[PIPE]) == 0) {
           write_to_pipe(current_pipe_fds);
@@ -148,9 +160,8 @@ bool execute_command(command_t *command) {
         exit(EXIT_FAILURE);
       }
     } else if (child_pid == -1) {
-      fprintf(stderr, "mantish: forking failed\n");
+      printf("mantish: no forking since built_in\n");
       clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
-      break;
 
     } else {
       child_list[num_of_child++] = child_pid;

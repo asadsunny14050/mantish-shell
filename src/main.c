@@ -1,13 +1,17 @@
 #include "../include/common.h"
-#include "../include/debug_functions.h"
+#include "../include/debug.h"
 #include "../include/shell.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+
+Session shell_session;
 
 void start_shell() {
   printf("starting mantish....\n");
+  strncpy(shell_session.current_directory, getenv("PWD"), DIR_SIZE);
   // sleep(1);
   system("clear");
   bool keep_alive = true;
@@ -17,8 +21,7 @@ void start_shell() {
   command_t command = {0};
 
   while (keep_alive) {
-    // printf("> ");
-    printf("\e[32m%s >-{°°}-< \e[0m", getenv("PWD"));
+    printf("\e[32m%s >-{°°}-< \e[0m", shell_session.current_directory);
     fflush(stdout);
 
     line = read_command();

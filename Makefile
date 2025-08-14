@@ -1,7 +1,7 @@
 CC = gcc 
 CFLAGS = -Wall -Wextra -g
 
-SRCS = src/main.c src/shell.c src/parse.c src/utils.c src/operators.c src/debug_functions.c 
+SRCS = src/main.c src/shell.c src/parse.c src/utils.c src/operators.c src/built_in.c src/debug.c 
 
 TARGET = mantish
 
