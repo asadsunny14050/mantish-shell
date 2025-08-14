@@ -1,6 +1,5 @@
 
 #include "../include/utils.h"
-#include <unistd.h>
 
 void clean_up_fds(int *prev_pipe_read_end, enum pipe_channels current_pipe_fds[2]) {
 
@@ -17,4 +16,23 @@ void clean_up_fds(int *prev_pipe_read_end, enum pipe_channels current_pipe_fds[2
     current_pipe_fds[WRITE_END] = -1;
   }
   // fflush(stdin); // Non-standard way to clear the buffer
+}
+
+extern char *operaters[];
+bool set_run_permit(command_t *command, bool built_in_result, bool *run_permit) {
+  if (!command->operater) {
+    return false;
+  }
+
+  if (strcmp(command->operater, operaters[AND]) == 0) {
+    *run_permit = built_in_result == 1 ? true : false;
+    return true;
+  }
+
+  if (strcmp(command->operater, operaters[OR]) == 0) {
+    *run_permit = built_in_result == 1 ? false : true;
+    return true;
+  }
+
+  return false;
 }

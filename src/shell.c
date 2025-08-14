@@ -84,7 +84,7 @@ bool execute_command(command_t *command) {
 
   bool redirection;
 
-  bool run_permit = true; // means depends on the exectution result of the previous command if any
+  bool run_permit = true; // means depends on the exectution result of the previous command if there any at all
   command_t *current_cmd = command;
   while (current_cmd) {
     printf("current_cmd: %s\n", current_cmd->args[0]);
@@ -129,7 +129,10 @@ bool execute_command(command_t *command) {
       child_pid = fork();
     } else if (built_in_result == -1) {
       clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
-      break;
+      if (!set_run_permit(current_cmd, built_in_result, &run_permit))
+        break;
+    } else {
+      set_run_permit(current_cmd, built_in_result, &run_permit);
     }
 
     if (child_pid == 0) {
@@ -172,13 +175,12 @@ bool execute_command(command_t *command) {
         prev_pipe_read_end = STDIN_FILENO;
       }
 
-      if (current_cmd->operater && ((strcmp(current_cmd->operater, operaters[AND]) || strcmp(current_cmd->operater, operaters[OR])))) {
+      if (current_cmd->operater && ((strcmp(current_cmd->operater, operaters[AND]) == 0 || strcmp(current_cmd->operater, operaters[OR]) == 0))) {
         int status;
         waitpid(child_pid, &status, 0);
         int exit_code;
         if (WIFEXITED(status)) {
           exit_code = WEXITSTATUS(status); // Get actual exit code
-
           run_permit = strcmp(current_cmd->operater, operaters[AND]) ? exit_code != 0 : exit_code == 0;
           num_of_child--;
         }

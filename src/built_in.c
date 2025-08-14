@@ -38,11 +38,12 @@ int change_directory(char *path_name) {
 extern char *operaters[];
 
 int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_channels current_pipe_fds[2]) {
+  bool has_next_command = command->next_command;
   bool redirection = command->operater && (strcmp(command->operater, operaters[WRITE]) == 0 || strcmp(command->operater, operaters[APPEND]) == 0 || strcmp(command->operater, operaters[WRITE_ERR]) == 0);
 
-  bool write_to_pipe = command->next_command && (strcmp(command->next_command->args[0], operaters[PIPE]));
+  bool write_to_pipe = has_next_command && (strcmp(command->next_command->args[0], operaters[PIPE]) == 0);
 
-  bool not_stdin = command->next_command && strcmp(command->next_command->args[0], operaters[READ]) == 0;
+  bool not_stdin = has_next_command && strcmp(command->next_command->args[0], operaters[READ]) == 0;
 
   if (strcmp("cd", command->args[0]) == 0) {
     clean_up_fds(prev_pipe_read_end, current_pipe_fds);
