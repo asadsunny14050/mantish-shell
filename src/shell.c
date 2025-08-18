@@ -84,7 +84,7 @@ bool execute_command(command_t *command) {
 
   bool redirection;
 
-  bool run_permit = true; // means depends on the exectution result of the previous command if there any at all
+  bool run_permit = true; // means depends on the execution result of the previous command if there any at all
   command_t *current_cmd = command;
   while (current_cmd) {
     printf("current_cmd: %s\n", current_cmd->args[0]);
@@ -148,15 +148,20 @@ bool execute_command(command_t *command) {
         }
       }
 
+      printf("prev_pipe_read_end: %d\n", prev_pipe_read_end);
+
       if (prev_pipe_read_end != STDIN_FILENO) {
+        printf("i'm the child 2\n");
         printf("%s has to read from a pipe\n", current_cmd->args[0]);
         dup2(prev_pipe_read_end, STDIN_FILENO);
         close(prev_pipe_read_end);
       } else if (current_cmd->operater && strcmp(current_cmd->operater, operaters[READ]) == 0) {
+        printf("i'm the child 1\n");
         printf("%s has to read from a file\n", current_cmd->args[0]);
         read_from_file(*current_cmd->operand);
       }
 
+      printf("i'm the child\n");
       if (execvp(current_cmd->args[0], current_cmd->args) == -1) {
         fprintf(stderr, "mantish: either the program \"%s\" doesn't exist or an internal error occured\n", current_cmd->args[0]);
         clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
@@ -164,7 +169,7 @@ bool execute_command(command_t *command) {
       }
     } else if (child_pid == -1) {
       printf("mantish: no forking since built_in\n");
-      clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+      // clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
 
     } else {
       child_list[num_of_child++] = child_pid;

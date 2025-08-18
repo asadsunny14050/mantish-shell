@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../include/operators.h"
+#include "../include/utils.h"
 #include "./common.h"
 #include <stdbool.h>
 #include <stdio.h>

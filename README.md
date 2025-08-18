@@ -1,4 +1,3 @@
 # 🦗 Mantish 
 
-A custom shell implementation in C 
-
+A custom unix shell implementation in C
