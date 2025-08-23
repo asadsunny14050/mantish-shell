@@ -7,4 +7,5 @@ obj
 *.o
 *.a
 mantish
+queue
 

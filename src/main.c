@@ -1,5 +1,6 @@
 #include "../include/common.h"
 #include "../include/debug.h"
+#include "../include/queue.h"
 #include "../include/shell.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -9,14 +10,21 @@
 
 Session shell_session;
 
-void start_shell() {
+void init_session() {
+
   printf("\e[32mstarting mantish....\e[0m\n");
   strncpy(shell_session.current_directory, getenv("PWD"), DIR_SIZE);
+  init_queue();
   // sleep(1);
   system("clear");
+}
+
+void start_shell() {
+
+  init_session();
 
   const char *art =
-      "\x1b[32m" /* green on */
+      "\x1b[32m"
       "⠀⣤⡀⠀⠀⠀⠀⠀⠀⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
       "⠀⠘⢷⡄⠀⠀⠀⠀⢰⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
       "⠀⠀⠈⠻⠆⢀⣀⣀⣈⣁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
@@ -32,7 +40,8 @@ void start_shell() {
       "⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⡄⠀⣴⣿⣿⣿⠟⠁⠀⠀⠀⠀⢀⣼⠋⠀⠀⠸⡇⠀\n"
       "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠃⣸⣿⣿⠟⢁⡴⠂⠀⠀⠀⠴⠛⠁⠀⠀⠀⠀⠀⠀\n"
       "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠋⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-      "\x1b[0m"; /* reset */
+      "\x1b[0m";
+
   fputs(art, stdout);
   bool keep_alive = true;
 

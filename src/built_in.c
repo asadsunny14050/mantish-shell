@@ -6,6 +6,30 @@ char *built_in_commands[] = {"cd", "pwd", "history", "exit"};
 
 extern Session shell_session;
 
+void print_history(int output_fd) {
+  int head = shell_session.history_list.head;
+  int tail = shell_session.history_list.tail;
+  int index = head;
+  int count = 1;
+  // printf("head: %d\n", head);
+  // printf("tail: %d\n", tail);
+  dprintf(output_fd, "\e[32m------------------------------------------------\n");
+  dprintf(output_fd, "[Commands History]\n");
+  dprintf(output_fd, "------------------------------------------------\n");
+  do {
+    dprintf(output_fd, "%-6i│   ", count);
+    dprintf(output_fd, "%s", shell_session.history_list.items[index]);
+    index = (index + 1) % CAPACITY;
+    count++;
+
+  } while (index != (tail + 1) % CAPACITY);
+  dprintf(output_fd, "------------------------------------------------\n\e[0m");
+
+  if (output_fd != STDOUT_FILENO) {
+    close(output_fd);
+  }
+}
+
 int print_working_directory(int output_fd) {
   char working_directory[DIR_SIZE];
   getcwd(working_directory, DIR_SIZE);
@@ -105,14 +129,12 @@ int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_cha
 
     if (not_stdin) {
 
-      fprintf(stderr, "mantish: cd doesn't work with | or < operator\n");
+      fprintf(stderr, "mantish: pwd doesn't work with | or < operator\n");
       return -1;
     }
 
     if (redirect_to_pipe) {
       printf("will write to pipe\n");
-      printf("prev_pipe_read_end: %d\n", *prev_pipe_read_end);
-      printf("current_pipe_read_end: %d\n", current_pipe_fds[READ_END]);
       *prev_pipe_read_end = current_pipe_fds[READ_END];
       printf("prev_pipe_read_end after mutation: %d\n", *prev_pipe_read_end);
       int pwd_result = print_working_directory(current_pipe_fds[WRITE_END]);
@@ -137,6 +159,36 @@ int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_cha
 
     print_working_directory(STDOUT_FILENO);
     return 1;
+  } else if (strcmp("history", command->args[0]) == 0) {
+    if (command->args[1]) {
+      fprintf(stderr, "mantish: history doesn't take any argument\n");
+      return -1;
+    }
+
+    if (not_stdin) {
+
+      fprintf(stderr, "mantish: history doesn't work with | or < operator\n");
+      return -1;
+    }
+
+    if (redirect_to_file) {
+      printf("will write to file\n");
+      int fd = built_in_to_file(command);
+      print_history(fd);
+      return 1;
+    }
+
+    if (redirect_to_pipe) {
+      printf("will write to pipe\n");
+      *prev_pipe_read_end = current_pipe_fds[READ_END];
+      print_history(current_pipe_fds[WRITE_END]);
+
+      return 1;
+    }
+
+    print_history(STDOUT_FILENO);
+    return 1;
+
   } else if (strcmp("exit", command->args[0]) == 0) {
     printf("\e[32mending mantish....\e[0m\n");
     sleep(1);

@@ -4,6 +4,7 @@
 #include "../include/debug.h"
 #include "../include/operators.h"
 #include "../include/parse.h"
+#include "../include/queue.h"
 #include "../include/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,10 @@ char *read_command() {
     exit(EXIT_FAILURE);
   }
   printf("%s\n", line);
+  if (line[0])
+    enqueue(line);
+
+  print_queue();
   return line;
 }
 
@@ -86,6 +91,10 @@ bool execute_command(command_t *command) {
 
   bool run_permit = true; // means depends on the execution result of the previous command if there any at all
   command_t *current_cmd = command;
+
+  if (!current_cmd->args[0])
+    return true;
+
   while (current_cmd) {
     printf("current_cmd: %s\n", current_cmd->args[0]);
     redirection = false;
@@ -122,9 +131,9 @@ bool execute_command(command_t *command) {
 
     child_pid = -1;
     int built_in_result = execute_built_ins(current_cmd, &prev_pipe_read_end, current_pipe_fds);
-    // 0 means no build_in to execute fork a child
+    // 0 means no built_in to execute fork a child
     // 1 means a built_in command was executed no need to fork a child process, move on the the next command
-    // -1 means build_in command was found but returned an error thus canceling the command chain loop and signaling for repromt
+    // -1 means build_in command was found but returned an error thus canceling the command chain loop and signaling for reprompt
     if (built_in_result == 0) {
       child_pid = fork();
     } else if (built_in_result == -1) {

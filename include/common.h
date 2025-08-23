@@ -2,10 +2,19 @@
 #define TOKEN_BUFF_SIZE 64
 #define TOKEN_DELIMITER " \t\r\n\a"
 #define DIR_SIZE 1024
+#define CMD_SIZE 1024
+#define CAPACITY 5
+
+typedef struct {
+  int head;
+  int tail;
+  char *items[CAPACITY];
+} Queue;
 
 typedef struct {
   char current_directory[DIR_SIZE];
   char previous_directory[DIR_SIZE];
+  Queue history_list;
 } Session;
 
 typedef struct command {

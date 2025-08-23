@@ -12,3 +12,4 @@ bool check_operators(const char *token, command_t *command, char **tokens,
 void read_from_file(char *file_name);
 void write_to_file(char *file_name, char *operator_type);
 void write_to_pipe(enum pipe_channels current_pipe_fds[2]);
+int built_in_to_file(command_t *command);

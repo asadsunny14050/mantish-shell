@@ -38,6 +38,18 @@ void read_from_file(char *file_name) {
   close(fd);
 }
 
+int built_in_to_file(command_t *command) {
+
+  int fd;
+  if (strcmp(command->operater, operaters[WRITE]) == 0) {
+    fd = open(*command->operand, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+  } else {
+    fd = open(*command->operand, O_WRONLY | O_CREAT | O_APPEND);
+  }
+  return fd;
+}
+
 void write_to_file(char *file_name, char *operator_type) {
   int fd;
   if (strcmp(operator_type, operaters[WRITE]) == 0) {
