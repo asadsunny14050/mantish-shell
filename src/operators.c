@@ -8,6 +8,7 @@ bool check_operators(const char *token, command_t *command, char **tokens, int *
     if (strcmp(token, operaters[ind]) == 0) {
 
       printf("operator token found: %s\n", token);
+      printf("operator matched with: %s\n", operaters[ind]);
       command->operater = operaters[ind];
       if (strcmp(command->operater, operaters[PIPE]) == 0 || strcmp(command->operater, operaters[AND]) == 0 || strcmp(command->operater, operaters[OR]) == 0) {
 
@@ -26,6 +27,7 @@ bool check_operators(const char *token, command_t *command, char **tokens, int *
 
   return false;
 }
+
 void read_from_file(char *file_name) {
   int fd = open(file_name, O_RDONLY);
   if (fd == -1) {

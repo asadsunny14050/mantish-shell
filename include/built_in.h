@@ -12,3 +12,5 @@
 
 int execute_built_ins(command_t *command, int *prev_pipe_read_end,
                       enum pipe_channels current_pipe_fds[2]);
+
+bool create_job(command_t *command, int process_id);

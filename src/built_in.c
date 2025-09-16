@@ -1,19 +1,62 @@
 #include "../include/built_in.h"
+#include "../include/utils.h"
 #include <stdlib.h>
 #include <unistd.h>
 
-char *built_in_commands[] = {"cd", "pwd", "history", "exit"};
-
 extern Session shell_session;
+
+bool create_job(command_t *command, int process_id) {
+  size_t job_count = shell_session.jobs_count;
+  shell_session.jobs_count += 1;
+
+  if (job_count == JOBS_LIMIT)
+    return false;
+
+  shell_session.jobs[job_count].name = (char *)malloc(CMD_SIZE);
+  memset(shell_session.jobs[job_count].name, 0, CMD_SIZE);
+
+  strncpy(shell_session.jobs[job_count].name, command->args[0], CMD_SIZE);
+  strncpy(shell_session.jobs[job_count].status, "running", 20);
+  shell_session.jobs[job_count].process_id = process_id;
+
+  printf("[%lu] %s %s\n", job_count, shell_session.jobs[job_count].name, shell_session.jobs[job_count].status);
+
+  return true;
+}
+
+void print_jobs(int output_fd) {
+  bool print_to_console = output_fd == STDOUT_FILENO;
+  if (print_to_console)
+    dprintf(output_fd, "\e[32m");
+
+  dprintf(output_fd, "------------------------------------------------\n");
+  dprintf(output_fd, "[Jobs List]\n");
+  dprintf(output_fd, "------------------------------------------------\n");
+  for (size_t i = 0; i < shell_session.jobs_count; i++) {
+    dprintf(output_fd, "%-6zu│   ", i + 1);
+    dprintf(output_fd, "%-6d│ %-6s│ %6s\n", shell_session.jobs[i].process_id, shell_session.jobs[i].name, shell_session.jobs[i].status);
+  }
+  dprintf(output_fd, "------------------------------------------------\n");
+
+  if (print_to_console)
+    dprintf(output_fd, "\e[0m");
+
+  if (!print_to_console) {
+    close(output_fd);
+  }
+}
 
 void print_history(int output_fd) {
   int head = shell_session.history_list.head;
   int tail = shell_session.history_list.tail;
   int index = head;
   int count = 1;
-  // printf("head: %d\n", head);
-  // printf("tail: %d\n", tail);
-  dprintf(output_fd, "\e[32m------------------------------------------------\n");
+  bool print_to_console = output_fd == STDOUT_FILENO;
+
+  if (print_to_console)
+    dprintf(output_fd, "\e[32m");
+
+  dprintf(output_fd, "------------------------------------------------\n");
   dprintf(output_fd, "[Commands History]\n");
   dprintf(output_fd, "------------------------------------------------\n");
   do {
@@ -23,9 +66,12 @@ void print_history(int output_fd) {
     count++;
 
   } while (index != (tail + 1) % CAPACITY);
-  dprintf(output_fd, "------------------------------------------------\n\e[0m");
+  dprintf(output_fd, "------------------------------------------------\n");
 
-  if (output_fd != STDOUT_FILENO) {
+  if (print_to_console)
+    dprintf(output_fd, "\e[0m");
+
+  if (!print_to_console) {
     close(output_fd);
   }
 }
@@ -69,6 +115,7 @@ int change_directory(char *path_name) {
 
   strncpy(shell_session.previous_directory, shell_session.current_directory, DIR_SIZE);
   getcwd(shell_session.current_directory, DIR_SIZE);
+  invalidate_current_directory();
   printf("shell_session.current_directory: %s\n", shell_session.current_directory);
   return 0;
 }
@@ -187,6 +234,52 @@ int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_cha
     }
 
     print_history(STDOUT_FILENO);
+    return 1;
+
+  } else if (strcmp("jobs", command->args[0]) == 0) {
+    if (command->args[1]) {
+      fprintf(stderr, "mantish: jobs doesn't take any argument\n");
+      return -1;
+    }
+
+    if (not_stdin) {
+
+      fprintf(stderr, "mantish: jobs doesn't work with | or < operator\n");
+      return -1;
+    }
+
+    if (redirect_to_file) {
+      printf("will write to file\n");
+      int fd = built_in_to_file(command);
+      print_jobs(fd);
+      return 1;
+    }
+
+    if (redirect_to_pipe) {
+      printf("will write to pipe\n");
+      *prev_pipe_read_end = current_pipe_fds[READ_END];
+      print_jobs(current_pipe_fds[WRITE_END]);
+
+      return 1;
+    }
+
+    print_jobs(STDOUT_FILENO);
+    return 1;
+
+  } else if (strcmp("fg", command->args[0]) == 0) {
+
+    if (not_stdin) {
+
+      fprintf(stderr, "mantish: 'fg' doesn't work with | or < operator\n");
+      return -1;
+    }
+
+    if (redirect_to_file || redirect_to_pipe) {
+      fprintf(stderr, "mantish: 'fg' doesn't redirect to to file or pipe'\n");
+      return -1;
+    }
+
+    print_jobs(STDOUT_FILENO);
     return 1;
 
   } else if (strcmp("exit", command->args[0]) == 0) {

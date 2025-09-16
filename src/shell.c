@@ -15,19 +15,20 @@
 
 char *operaters[] = {"|", ">>", ">", "2>", "<", "&&", "||"};
 
-char *read_command() {
+char *read_command(size_t *buff_size) {
   char *line;
-  size_t buff_size = 0;
-  if (getline(&line, &buff_size, stdin) == -1) {
+  *buff_size = 0;
+  if (getline(&line, buff_size, stdin) == -1) {
     if (feof(stdin)) {
       exit(EXIT_SUCCESS);
     }
     perror("readline");
     exit(EXIT_FAILURE);
   }
-  printf("%s\n", line);
-  if (line[0])
+  printf("got the line: %s\n", line);
+  if (line && line[0]) {
     enqueue(line);
+  }
 
   print_queue();
   return line;
@@ -90,6 +91,7 @@ bool execute_command(command_t *command) {
   bool redirection;
 
   bool run_permit = true; // means depends on the execution result of the previous command if there any at all
+  bool run_in_background = false;
   command_t *current_cmd = command;
 
   if (!current_cmd->args[0])
@@ -118,13 +120,25 @@ bool execute_command(command_t *command) {
           clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
           break;
         }
+      } else if (strcmp(command->operater, operaters[JOB]) == 0) {
+
+        if (command->next_command) {
+          fprintf(stderr, "mantish: cannot have any command after \"&\"");
+          clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
+          break;
+        }
+
+        printf("welp! this will go in the background\n");
+        run_in_background = true;
       } else if (!*current_cmd->operand) {
         fprintf(stderr, "incorrect syntax: didn't input file after the %s operator\n", current_cmd->operater);
         clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
         break;
       }
+      if (strcmp(command->operater, operaters[JOB]) != 0) {
 
-      redirection = true;
+        redirection = true;
+      }
       printf("redirection: %d\n", redirection);
       printf("operator: %s\n", current_cmd->operater);
     }
@@ -177,11 +191,15 @@ bool execute_command(command_t *command) {
         exit(EXIT_FAILURE);
       }
     } else if (child_pid == -1) {
-      printf("mantish: no forking since built_in\n");
+      printf("mantish: no forking child process since a built_in was executed\n");
       // clean_up_fds(&prev_pipe_read_end, current_pipe_fds);
 
     } else {
       child_list[num_of_child++] = child_pid;
+
+      if (run_in_background)
+        create_job(command, child_pid);
+
       if (current_pipe_fds[WRITE_END] != -1) {
         prev_pipe_read_end = current_pipe_fds[READ_END];
         close(current_pipe_fds[WRITE_END]);
@@ -206,10 +224,15 @@ bool execute_command(command_t *command) {
     memset(previous_cmd, 0, sizeof(command_t));
   }
 
+  if (run_in_background)
+    return true;
+
   for (int i = 0; i < num_of_child; i++) {
     int process_status;
     waitpid(child_list[i], &process_status, 0); // Blocking wait for each child
   }
+
+  free_resources(command);
 
   return true;
 }
