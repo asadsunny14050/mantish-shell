@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-char *operaters[] = {"|", ">>", ">", "2>", "<", "&&", "||"};
+char *operaters[] = {"|", ">>", ">", "2>", "<", "&&", "||", "&"};
 
 char *read_command(size_t *buff_size) {
   char *line;

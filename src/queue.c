@@ -15,14 +15,12 @@ void init_queue() {
   }
 }
 void enqueue(char *item_to_add) {
-  printf("checkpoint 1");
   if (shell_session.history_list.tail + 1 == CAPACITY) {
     shell_session.history_list.tail = -1;
   }
   char *add_index = shell_session.history_list.items[shell_session.history_list.tail + 1];
   memset(add_index, 0, CMD_SIZE);
   strncpy(add_index, item_to_add, CMD_SIZE);
-  printf("checkpoint 1");
 
   shell_session.history_list.tail++;
 

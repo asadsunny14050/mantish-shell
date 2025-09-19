@@ -1,6 +1,5 @@
 
 #pragma once
-
 #include "../include/operators.h"
 #include "../include/utils.h"
 #include "./common.h"
@@ -8,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 int execute_built_ins(command_t *command, int *prev_pipe_read_end,

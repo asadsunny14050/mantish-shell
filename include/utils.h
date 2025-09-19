@@ -5,6 +5,7 @@
 
 #include "../include/common.h"
 #include "../include/utils.h"
+#include <ctype.h> // For isspace
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,3 +14,4 @@ void clean_up_fds(int *prev_pipe_read_end,
                   enum pipe_channels current_pipe_fds[2]);
 bool set_run_permit(command_t *command, bool built_in_result, bool *run_permit);
 void free_resources(command_t *command);
+bool is_integer(const char *str);

@@ -68,3 +68,30 @@ bool set_run_permit(command_t *command, bool built_in_result, bool *run_permit) 
 
   return false;
 }
+
+bool is_integer(const char *str) {
+  if (str == NULL || *str == '\0') { // Handle empty or NULL strings
+    return false;
+  }
+
+  int i = 0;
+
+  // Handle optional leading sign
+  if (str[0] == '-' || str[0] == '+') {
+    i = 1;
+  }
+
+  // Check if the string only contains a sign
+  if (str[i] == '\0') {
+    return false;
+  }
+
+  // Iterate through the remaining characters
+  for (; str[i] != '\0'; i++) {
+    if (!isdigit(str[i])) {
+      return false; // Not a digit
+    }
+  }
+
+  return true; // All characters are digits (after optional sign)
+}

@@ -1,7 +1,5 @@
 #include "../include/built_in.h"
 #include "../include/utils.h"
-#include <stdlib.h>
-#include <unistd.h>
 
 extern Session shell_session;
 
@@ -24,6 +22,31 @@ bool create_job(command_t *command, int process_id) {
   return true;
 }
 
+int wait_for_job(int job_count) {
+  printf("waiting......");
+  int job_index = job_count - 1;
+  printf("\e[32m%s\e[0m", shell_session.jobs[job_index].name);
+  int process_status;
+  waitpid(shell_session.jobs[job_index].process_id, &process_status, 0); // Blocking wait for child
+  if (WIFEXITED(process_status)) {
+    int exit_code = WEXITSTATUS(process_status); // Get actual exit code
+    if (exit_code == 0) {
+      return 1;
+    } else {
+      return -1;
+    }
+  }
+  return -1;
+}
+
+void remove_job(int job_index) {
+  free(shell_session.jobs[job_index].name);
+  shell_session.jobs[job_index].name = NULL;
+  memset(shell_session.jobs[job_index].status, 0, 20);
+  shell_session.jobs[job_index].process_id = 0;
+  shell_session.jobs_count--;
+}
+
 void print_jobs(int output_fd) {
   bool print_to_console = output_fd == STDOUT_FILENO;
   if (print_to_console)
@@ -33,8 +56,22 @@ void print_jobs(int output_fd) {
   dprintf(output_fd, "[Jobs List]\n");
   dprintf(output_fd, "------------------------------------------------\n");
   for (size_t i = 0; i < shell_session.jobs_count; i++) {
+    int status;
+    waitpid(shell_session.jobs[i].process_id, &status, WNOHANG);
+
+    if (WIFEXITED(status))
+      strncpy(shell_session.jobs[i].status, "finished", 20);
+
     dprintf(output_fd, "%-6zu│   ", i + 1);
     dprintf(output_fd, "%-6d│ %-6s│ %6s\n", shell_session.jobs[i].process_id, shell_session.jobs[i].name, shell_session.jobs[i].status);
+
+    if (WIFEXITED(status))
+      remove_job(i);
+  }
+
+  if (shell_session.jobs_count == 0) {
+
+    dprintf(output_fd, "[ EMPTY ]\n");
   }
   dprintf(output_fd, "------------------------------------------------\n");
 
@@ -269,7 +306,6 @@ int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_cha
   } else if (strcmp("fg", command->args[0]) == 0) {
 
     if (not_stdin) {
-
       fprintf(stderr, "mantish: 'fg' doesn't work with | or < operator\n");
       return -1;
     }
@@ -279,8 +315,21 @@ int execute_built_ins(command_t *command, int *prev_pipe_read_end, enum pipe_cha
       return -1;
     }
 
-    print_jobs(STDOUT_FILENO);
-    return 1;
+    size_t job_count = shell_session.jobs_count;
+    if (command->args[1]) {
+      if (!is_integer(command->args[1])) {
+        fprintf(stderr, "mantish: fg takes an integer\n");
+        return -1;
+      }
+
+      job_count = atoi(command->args[1]);
+      if (job_count <= 0 || job_count > shell_session.jobs_count) {
+        fprintf(stderr, "mantish: job doesn't exit\n");
+        return -1;
+      }
+    }
+
+    return wait_for_job(job_count);
 
   } else if (strcmp("exit", command->args[0]) == 0) {
     printf("\e[32mending mantish....\e[0m\n");
