@@ -6,7 +6,7 @@
 #define DIR_SIZE 1024
 #define CMD_SIZE 1024
 #define JOBS_LIMIT 64
-#define CAPACITY 5
+#define CAPACITY 200
 #define MAX_BRANCH_NAME_LEN 256
 
 typedef struct {
